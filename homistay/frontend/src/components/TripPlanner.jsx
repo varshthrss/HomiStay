@@ -156,29 +156,21 @@ function TripPlanner({ open, onOpenChange }) {
     // Budget: cheapest
     const budget = [...scored].sort((a, b) => a.totalCost - b.totalCost)[0];
 
-    // Nearest: smallest avg distance (prefer different property from budget if possible)
-    const nearestCandidates = [...scored].sort((a, b) => a.avgDist - b.avgDist);
-    const nearest = nearestCandidates.find((c) => c.property.id !== budget.property.id) || nearestCandidates[0];
+    // Nearest: smallest avg distance
+    const nearest = [...scored].sort((a, b) => a.avgDist - b.avgDist)[0];
 
     // Best overall: weighted score (40% price, 60% distance)
     const maxP = Math.max(...scored.map((s) => s.totalCost));
     const minP = Math.min(...scored.map((s) => s.totalCost));
     const maxD = Math.max(...scored.map((s) => s.avgDist));
     const minD = Math.min(...scored.map((s) => s.avgDist));
-    const bestCandidates = [...scored].sort((a, b) => {
+    const best = [...scored].sort((a, b) => {
       const npa = maxP === minP ? 0 : (a.totalCost - minP) / (maxP - minP);
       const npb = maxP === minP ? 0 : (b.totalCost - minP) / (maxP - minP);
       const nda = maxD === minD ? 0 : (a.avgDist - minD) / (maxD - minD);
       const ndb = maxD === minD ? 0 : (b.avgDist - minD) / (maxD - minD);
       return 0.4 * npa + 0.6 * nda - (0.4 * npb + 0.6 * ndb);
-    });
-    const best =
-      bestCandidates.find(
-        (c) => c.property.id !== budget.property.id && c.property.id !== nearest.property.id
-      ) ||
-      bestCandidates.find((c) => c.property.id !== nearest.property.id) ||
-      bestCandidates.find((c) => c.property.id !== budget.property.id) ||
-      bestCandidates[0];
+    })[0];
 
     return [
       { type: "budget", ...budget },
