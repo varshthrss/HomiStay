@@ -38,10 +38,20 @@ export function ProfilePage() {
     );
   }
 
-  const handleProfileChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleProfileChange = (e) => {
+    let { name, value } = e.target;
+    if (name === "phone") {
+      value = value.replace(/[^0-9+\s()-]/g, "");
+    }
+    setFormData({ ...formData, [name]: value });
+  };
   const handlePasswordChange = (e) => setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
 
   const handleSaveProfile = async () => {
+    if (formData.phone && !/^[0-9+\s()-]{4,20}$/.test(formData.phone)) {
+      setError("Please enter a valid phone number (4-20 digits/symbols).");
+      return;
+    }
     try {
       setLoading(true);
       setError("");

@@ -282,4 +282,21 @@ CREATE TABLE IF NOT EXISTS dynamic_pricing_configs (
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('GUEST','HOST','ADMIN','SUPPORT_TEAM'));
 
+-- Safe migration: add missing columns to properties if they don't exist
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS cleaning_fee DECIMAL(10,2) DEFAULT 0.00;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS allows_children BOOLEAN DEFAULT TRUE;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS allows_infants BOOLEAN DEFAULT TRUE;
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS allows_pets BOOLEAN DEFAULT FALSE;
+
+-- Safe migration: add missing columns to bookings if they don't exist
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS adults INT DEFAULT 1;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS children INT DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS infants INT DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pets INT DEFAULT 0;
+
+-- Safe migration: update payments status check constraint to include PARTIALLY_REFUNDED
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_status_check;
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS chk_payments_status;
+ALTER TABLE payments ADD CONSTRAINT chk_payments_status CHECK (status IN ('PENDING','PAID','REFUNDED','PARTIALLY_REFUNDED','FAILED'));
+
 

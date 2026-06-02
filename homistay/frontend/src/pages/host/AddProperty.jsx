@@ -372,6 +372,7 @@ function AddPropertyPage() {
     if (form.category === "other" && !form.customCategory?.trim()) errors.customCategory = "Enter your custom category";
     if (!form.address?.trim()) errors.address = "Enter the street address";
     if (!form.country?.trim()) errors.country = "Select or type a country";
+    if (!form.city?.trim()) errors.city = "Enter the city";
     if (!form.pincode?.trim()) errors.pincode = "Enter pincode";
     else if (!/^\d{4,10}$/.test(form.pincode.trim())) errors.pincode = "Enter a valid pincode (4-10 digits)";
     if (!mapState && step === 2) errors.location = "Please verify your address location first (click 'Verify address').";
@@ -545,8 +546,9 @@ function AddPropertyPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="city">City <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Label htmlFor="city">City *</Label>
                     <Input id="city" placeholder="e.g. Bengaluru" value={form.city} onChange={(e) => update("city", e.target.value)} className="rounded-xl" />
+                    {err("city")}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="pincode">Pincode / Zip *</Label>

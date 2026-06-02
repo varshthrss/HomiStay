@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, CalendarDays, Lock, Unlock, ShieldAlert, MessageSquareText } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, parseISO, addMonths, subMonths, isSameMonth, isToday, subDays } from "date-fns";
-import { propertiesApi, hostApi } from "@/services/api";
+import { propertiesApi, hostApi, normalizeBooking, bookingsApi } from "@/services/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
 function getDayStatus(day, bookings, propertyId, blockedDates) {
   // 1. Check bookings (occupied from check-in to check-out - 1)
   for (const booking of bookings) {
-    if (booking.propertyId !== propertyId || booking.status === "cancelled") continue;
+    if (String(booking.propertyId) !== String(propertyId) || booking.status === "cancelled") continue;
     const start = parseISO(booking.checkIn);
     const end = subDays(parseISO(booking.checkOut), 1);
     if (isWithinInterval(day, { start, end })) {
@@ -30,12 +30,14 @@ function getDayStatus(day, bookings, propertyId, blockedDates) {
 }
 
 function HostCalendarPage() {
-  const { user, bookings, properties } = useAppContext();
+  const { user, properties } = useAppContext();
   const [, setLocation] = useLocation();
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 4, 1));
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [blockedDates, setBlockedDates] = useState([]);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
+  const [bookings, setBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
 
   // Modals state
   const [selectedDay, setSelectedDay] = useState(null);
@@ -63,9 +65,22 @@ function HostCalendarPage() {
       .finally(() => setLoadingBlocked(false));
   }, [activePropertyId]);
 
+  const fetchBookings = useCallback(() => {
+    if (!activePropertyId) return;
+    setLoadingBookings(true);
+    hostApi.myBookings("all", 0, 100)
+      .then((res) => {
+        const list = res.content || [];
+        setBookings(list.map(normalizeBooking));
+      })
+      .catch(() => setBookings([]))
+      .finally(() => setLoadingBookings(false));
+  }, [activePropertyId]);
+
   useEffect(() => {
     fetchBlockedDates();
-  }, [fetchBlockedDates]);
+    fetchBookings();
+  }, [fetchBlockedDates, fetchBookings]);
 
   if (!user || user.role !== "host") {
     return <div className="container mx-auto px-4 py-20 text-center">
@@ -106,6 +121,7 @@ function HostCalendarPage() {
     try {
       await hostApi.toggleAvailability(activePropertyId, dateStr, dateStr, willBlock);
       fetchBlockedDates();
+      fetchBookings();
       setIsManageOpen(false);
     } catch (err) {
       setActionError(err.response?.data?.message || err.response?.data?.error || "Failed to update availability.");
@@ -125,11 +141,30 @@ function HostCalendarPage() {
     try {
       await hostApi.toggleAvailability(activePropertyId, bulkStart, bulkEnd, bulkBlock);
       fetchBlockedDates();
+      fetchBookings();
       setIsBulkOpen(false);
       setBulkStart("");
       setBulkEnd("");
     } catch (err) {
       setActionError(err.response?.data?.message || err.response?.data?.error || "Failed to update availability.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!activeBooking) return;
+    if (!window.confirm("Are you sure you want to cancel this booking? This will refund the guest according to the policy.")) return;
+    setActionLoading(true);
+    setActionError("");
+    try {
+      const numericId = activeBooking.id.startsWith("HMS-") ? activeBooking.id.replace("HMS-", "") : activeBooking.id;
+      await bookingsApi.cancel(numericId);
+      fetchBookings();
+      fetchBlockedDates();
+      setIsManageOpen(false);
+    } catch (err) {
+      setActionError(err.response?.data?.message || err.response?.data?.error || "Failed to cancel booking.");
     } finally {
       setActionLoading(false);
     }
@@ -161,13 +196,13 @@ function HostCalendarPage() {
             <Button variant="outline" size="sm" className="rounded-full gap-1.5 h-8 text-xs" onClick={() => { setIsBulkOpen(true); setActionError(""); }}>
               <CalendarDays className="w-3.5 h-3.5" /> Block / Unblock Range
             </Button>
-            {hostProps.length > 1 && (
-              <Select value={activePropertyId} onValueChange={setSelectedPropertyId}>
+            {hostProps.length > 0 && (
+              <Select value={String(activePropertyId)} onValueChange={setSelectedPropertyId}>
                 <SelectTrigger className="w-56 rounded-full" data-testid="select-property">
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
                 <SelectContent>
-                  {hostProps.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                  {hostProps.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
@@ -335,19 +370,33 @@ function HostCalendarPage() {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" className="rounded-xl" onClick={() => setIsManageOpen(false)}>
-              Close
-            </Button>
-            {!activeBooking && selectedDay && (
-              <Button
-                variant={selectedDay.status === "available" ? "destructive" : "default"}
-                className="rounded-xl"
-                disabled={actionLoading}
-                onClick={handleSingleToggle}
-              >
-                {actionLoading ? "Processing..." : selectedDay.status === "available" ? "Block Date" : "Unblock Date"}
-              </Button>
-            )}
+            <div className="flex gap-2 w-full justify-between">
+              {activeBooking && (
+                <Button
+                  variant="destructive"
+                  className="rounded-xl"
+                  disabled={actionLoading}
+                  onClick={handleCancelBooking}
+                >
+                  {actionLoading ? "Processing..." : "Cancel Booking"}
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" className="rounded-xl" onClick={() => setIsManageOpen(false)}>
+                  Close
+                </Button>
+                {!activeBooking && selectedDay && (
+                  <Button
+                    variant={selectedDay.status === "available" ? "destructive" : "default"}
+                    className="rounded-xl"
+                    disabled={actionLoading}
+                    onClick={handleSingleToggle}
+                  >
+                    {actionLoading ? "Processing..." : selectedDay.status === "available" ? "Block Date" : "Unblock Date"}
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
