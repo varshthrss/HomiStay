@@ -85,7 +85,10 @@ function Navbar() {
     // Basic JS validation — avoids browser native "please fill in this field" tooltip
     if (!email.trim()) { setAuthError("Email is required."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setAuthError("Please enter a valid email address."); return; }
-    if (authMode === "signup" && (!password || password.length < 8)) { setAuthError("Password must be at least 8 characters."); return; }
+    if (authMode === "signup") {
+      const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+      if (!password || !passwordRegex.test(password)) { setAuthError("Password must be at least 8 characters with letters, numbers, and a symbol."); return; }
+    }
     if (authMode === "signup" && password !== confirmPassword) { setAuthError("Passwords do not match."); return; }
     if (authMode === "signup" && !fullName.trim()) { setAuthError("Full name is required."); return; }
 

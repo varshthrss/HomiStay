@@ -29,6 +29,7 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   if (!user) {
     return (
@@ -41,6 +42,11 @@ export function ProfilePage() {
   const handleProfileChange = (e) => {
     let { name, value } = e.target;
     if (name === "phone") {
+      if (/[a-zA-Z]/.test(value)) {
+        setPhoneError("Only numbers allowed");
+      } else {
+        setPhoneError("");
+      }
       value = value.replace(/[^0-9+\s()-]/g, "");
     }
     setFormData({ ...formData, [name]: value });
@@ -51,6 +57,17 @@ export function ProfilePage() {
     if (formData.phone && !/^[0-9+\s()-]{4,20}$/.test(formData.phone)) {
       setError("Please enter a valid phone number (4-20 digits/symbols).");
       return;
+    }
+    if (formData.dob) {
+      const birthDate = new Date(formData.dob);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+      if (actualAge < 16) {
+        setError("You must be at least 16 years old.");
+        return;
+      }
     }
     try {
       setLoading(true);
@@ -81,8 +98,9 @@ export function ProfilePage() {
   };
 
   const handleChangePassword = async () => {
-    if (passwordData.newPassword.length < 8) {
-      setError("New password must be at least 8 characters");
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    if (!passwordRegex.test(passwordData.newPassword)) {
+      setError("Password must be at least 8 characters with letters, numbers, and a symbol.");
       return;
     }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -128,7 +146,7 @@ export function ProfilePage() {
                   Change Password
                 </button>
                 <button 
-                  onClick={() => { setFormData(initFormData()); setIsEditing(true); setError(''); }}
+                  onClick={() => { setFormData(initFormData()); setIsEditing(true); setError(''); setPhoneError(''); }}
                   className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
                 >
                   <Edit2 className="w-4 h-4 mr-2" />
@@ -268,7 +286,7 @@ export function ProfilePage() {
               {isEditing && (
                 <div className="absolute top-6 right-6 flex gap-2">
                   <button 
-                    onClick={() => { setFormData(initFormData()); setIsEditing(false); setError(''); }}
+                    onClick={() => { setFormData(initFormData()); setIsEditing(false); setError(''); setPhoneError(''); }}
                     disabled={loading}
                     className="p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
                   >
@@ -293,6 +311,27 @@ export function ProfilePage() {
                 
                 <div className="flex items-start group">
                   <div className="p-3 rounded-2xl bg-primary/10 text-primary mr-4 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-sm">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Full Name</p>
+                    {isEditing ? (
+                      <input 
+                        type="text" 
+                        name="fullName" 
+                        value={formData.fullName} 
+                        onChange={handleProfileChange}
+                        placeholder="Your full name"
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    ) : (
+                      <p className="text-base font-semibold">{user.name}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start group">
+                  <div className="p-3 rounded-2xl bg-primary/10 text-primary mr-4 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-sm">
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
@@ -309,14 +348,17 @@ export function ProfilePage() {
                   <div className="flex-1">
                     <p className="text-sm font-medium text-muted-foreground mb-1">Phone Number</p>
                     {isEditing ? (
-                      <input 
-                        type="tel" 
-                        name="phone" 
-                        value={formData.phone} 
-                        onChange={handleProfileChange}
-                        placeholder={user.phone || "Enter your phone number"}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
+                      <div>
+                        <input 
+                          type="tel" 
+                          name="phone" 
+                          value={formData.phone} 
+                          onChange={handleProfileChange}
+                          placeholder={user.phone || "Enter your phone number"}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        {phoneError && <p className="text-xs text-destructive mt-1">{phoneError}</p>}
+                      </div>
                     ) : (
                       <p className="text-base font-semibold">{user.phone || "Not provided"}</p>
                     )}
@@ -367,7 +409,6 @@ export function ProfilePage() {
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
-                        <option value="Prefer not to say">Prefer not to say</option>
                       </select>
                     ) : (
                       <p className="text-base font-semibold capitalize">{user.gender || "Not provided"}</p>
@@ -405,7 +446,7 @@ export function ProfilePage() {
               {isEditing && (
                 <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-border/40">
                   <button 
-                    onClick={() => { setFormData(initFormData()); setIsEditing(false); setError(''); }}
+                    onClick={() => { setFormData(initFormData()); setIsEditing(false); setError(''); setPhoneError(''); }}
                     disabled={loading}
                     className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
                   >
