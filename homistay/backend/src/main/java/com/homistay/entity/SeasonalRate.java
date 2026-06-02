@@ -10,6 +10,8 @@ import java.time.LocalDate;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class SeasonalRate {
 
+    public enum AdjustmentType { PERCENTAGE, FIXED_AMOUNT }
+
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -25,8 +27,15 @@ public class SeasonalRate {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "price_multiplier", nullable = false)
-    private BigDecimal priceMultiplier;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "adjustment_type", nullable = false)
+    @Builder.Default private AdjustmentType adjustmentType = AdjustmentType.PERCENTAGE;
+
+    @Column(name = "adjustment_value", nullable = false, precision = 10, scale = 2)
+    private BigDecimal adjustmentValue;
+
+    @Column(name = "price_multiplier", precision = 10, scale = 2)
+    @Builder.Default private BigDecimal priceMultiplier = BigDecimal.ONE;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;

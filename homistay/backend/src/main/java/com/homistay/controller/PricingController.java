@@ -54,27 +54,50 @@ public class PricingController {
     // ── ── Host: Manage Seasonal Rates ─────────────────────────────────────────
 
     @PostMapping("/api/host/pricing/seasons")
-    @Operation(summary = "Create a seasonal rate (host only)", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<SeasonalRateResponse> createSeasonalRate(
+    @Operation(summary = "Create seasonal rate(s) for one or multiple properties", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<List<SeasonalRateResponse>> createSeasonalRate(
             @Valid @RequestBody SeasonalRateRequest req,
             @AuthenticationPrincipal UserDetails userDetails) {
-        Property property = propertyRepository.findById(req.getPropertyId())
-                .orElseThrow(() -> new ResourceNotFoundException("Property", req.getPropertyId()));
-        if (!property.getHost().getEmail().equals(userDetails.getUsername())) {
-            throw new UnauthorizedException("You do not own this property");
+        String type = req.getAdjustmentType() != null ? req.getAdjustmentType() : "PERCENTAGE";
+        List<Long> targets = req.getPropertyIds() != null && !req.getPropertyIds().isEmpty()
+                ? req.getPropertyIds()
+                : req.getPropertyId() != null ? List.of(req.getPropertyId())
+                : List.of();
+
+        if (targets.isEmpty()) {
+            throw new IllegalArgumentException("propertyId or propertyIds is required");
         }
 
-        SeasonalRate rate = SeasonalRate.builder()
-                .property(property)
-                .name(req.getName())
-                .startDate(req.getStartDate())
-                .endDate(req.getEndDate())
-                .priceMultiplier(req.getPriceMultiplier())
-                .isActive(true)
-                .build();
+        List<SeasonalRate> saved = new java.util.ArrayList<>();
+        for (Long pid : targets) {
+            Property property = propertyRepository.findById(pid)
+                    .orElseThrow(() -> new ResourceNotFoundException("Property", pid));
+            if (!property.getHost().getEmail().equals(userDetails.getUsername())) {
+                throw new UnauthorizedException("You do not own property: " + pid);
+            }
+            seasonalRateRepository.findByPropertyId(pid).stream()
+                .filter(s -> s.getName().equals(req.getName())
+                    && s.getStartDate().equals(req.getStartDate())
+                    && s.getEndDate().equals(req.getEndDate()))
+                .findFirst().ifPresent(s -> {
+                    throw new com.homistay.exception.BusinessException(
+                        "Season '" + req.getName() + "' already exists for property: " + pid);
+                });
 
-        SeasonalRate saved = seasonalRateRepository.save(rate);
-        return ResponseEntity.status(HttpStatus.CREATED).body(mapToSeasonalResponse(saved));
+            SeasonalRate rate = SeasonalRate.builder()
+                    .property(property)
+                    .name(req.getName().trim())
+                    .startDate(req.getStartDate())
+                    .endDate(req.getEndDate())
+                    .adjustmentType(SeasonalRate.AdjustmentType.valueOf(type))
+                    .adjustmentValue(req.getAdjustmentValue())
+                    .isActive(true)
+                    .build();
+
+            saved.add(seasonalRateRepository.save(rate));
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                saved.stream().map(this::mapToSeasonalResponse).collect(java.util.stream.Collectors.toList()));
     }
 
     @PutMapping("/api/host/pricing/seasons/{id}")
@@ -92,7 +115,12 @@ public class PricingController {
         rate.setName(req.getName());
         rate.setStartDate(req.getStartDate());
         rate.setEndDate(req.getEndDate());
-        rate.setPriceMultiplier(req.getPriceMultiplier());
+        if (req.getAdjustmentType() != null) {
+            rate.setAdjustmentType(SeasonalRate.AdjustmentType.valueOf(req.getAdjustmentType()));
+        }
+        if (req.getAdjustmentValue() != null) {
+            rate.setAdjustmentValue(req.getAdjustmentValue());
+        }
 
         SeasonalRate saved = seasonalRateRepository.save(rate);
         return ResponseEntity.ok(mapToSeasonalResponse(saved));
@@ -133,15 +161,14 @@ public class PricingController {
     @Operation(summary = "Save dynamic pricing config (host only)", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<DynamicPricingConfigResponse> saveConfig(
             @Valid @RequestBody DynamicPricingConfigRequest req,
-            @RequestParam Long propertyId,
             @AuthenticationPrincipal UserDetails userDetails) {
-        Property property = propertyRepository.findById(propertyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Property", propertyId));
+        Property property = propertyRepository.findById(req.getPropertyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Property", req.getPropertyId()));
         if (!property.getHost().getEmail().equals(userDetails.getUsername())) {
             throw new UnauthorizedException("You do not own this property");
         }
 
-        DynamicPricingConfig config = configRepository.findByPropertyId(propertyId)
+        DynamicPricingConfig config = configRepository.findByPropertyId(req.getPropertyId())
                 .orElse(DynamicPricingConfig.builder().property(property).build());
 
         if (req.getEnabled() != null) config.setEnabled(req.getEnabled());
@@ -190,7 +217,8 @@ public class PricingController {
                 .name(r.getName())
                 .startDate(r.getStartDate())
                 .endDate(r.getEndDate())
-                .priceMultiplier(r.getPriceMultiplier())
+                .adjustmentType(r.getAdjustmentType().name())
+                .adjustmentValue(r.getAdjustmentValue())
                 .isActive(r.getIsActive())
                 .build();
     }

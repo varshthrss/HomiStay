@@ -6,6 +6,8 @@ import com.homistay.dto.request.PropertySearchRequest;
 import com.homistay.dto.request.AvailabilityBlockRequest;
 import com.homistay.dto.response.AddonResponse;
 import com.homistay.exception.BusinessException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import com.homistay.dto.response.PageResponse;
 import com.homistay.dto.response.PropertyResponse;
@@ -33,6 +35,7 @@ public class PropertyService {
     private final AvailabilityRepository availabilityRepository;
     private final BookingRepository bookingRepository;
     private final PropertyAddonRepository propertyAddonRepository;
+    private final SeasonalRateRepository seasonalRateRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<PropertyResponse> search(PropertySearchRequest req) {
@@ -185,6 +188,24 @@ public class PropertyService {
             checkInInstructions = p.getCheckInInstructions();
         }
 
+        BigDecimal effectivePricePerNight = p.getPricePerNight();
+        String seasonName = null;
+        List<SeasonalRate> activeSeasons = seasonalRateRepository.findActiveByPropertyIdAndDate(p.getId(), LocalDate.now());
+        if (!activeSeasons.isEmpty()) {
+            SeasonalRate season = activeSeasons.get(0);
+            seasonName = season.getName();
+            BigDecimal adjVal = season.getAdjustmentValue() != null ? season.getAdjustmentValue() : BigDecimal.ZERO;
+            if (season.getAdjustmentType() == SeasonalRate.AdjustmentType.PERCENTAGE) {
+                effectivePricePerNight = p.getPricePerNight()
+                        .multiply(BigDecimal.ONE.add(adjVal.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
+                        .setScale(2, RoundingMode.HALF_UP);
+            } else {
+                effectivePricePerNight = p.getPricePerNight()
+                        .add(adjVal)
+                        .setScale(2, RoundingMode.HALF_UP);
+            }
+        }
+
         return PropertyResponse.builder()
                 .id(p.getId()).hostId(p.getHost().getId())
                 .hostName(p.getHost().getFullName()).hostAvatar(p.getHost().getAvatarUrl())
@@ -200,6 +221,8 @@ public class PropertyService {
                 .allowsInfants(p.getAllowsInfants())
                 .allowsPets(p.getAllowsPets())
                 .cleaningFee(p.getCleaningFee())
+                .effectivePricePerNight(effectivePricePerNight)
+                .seasonName(seasonName)
                 .houseRules(p.getHouseRules())
                 .guestRequirements(p.getGuestRequirements())
                 .checkInInstructions(checkInInstructions)

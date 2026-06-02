@@ -43,6 +43,7 @@ public class BookingService {
     private final BookingAddonRepository bookingAddonRepository;
     private final BookingModificationRepository bookingModificationRepository;
     private final BookingMessageRepository bookingMessageRepository;
+    private final PricingService pricingService;
 
     /**
      * Creates a booking with PESSIMISTIC LOCK to prevent double booking.
@@ -99,8 +100,9 @@ public class BookingService {
         }
 
         long nights = ChronoUnit.DAYS.between(req.getCheckIn(), req.getCheckOut());
-        BigDecimal totalPrice = property.getPricePerNight()
-                .multiply(BigDecimal.valueOf(nights));
+        BigDecimal subtotal = pricingService.calculateSubtotal(req.getPropertyId(), req.getCheckIn(), req.getCheckOut());
+        BigDecimal totalPrice = subtotal.add(
+            property.getCleaningFee() != null ? property.getCleaningFee() : BigDecimal.ZERO);
 
         Booking booking = Booking.builder()
                 .guest(guest).property(property)
@@ -145,7 +147,7 @@ public class BookingService {
 
         // Simulate payment
         Payment payment = Payment.builder()
-                .booking(saved).amount(totalPrice)
+                .booking(saved).amount(saved.getTotalPrice())
                 .status(PaymentStatus.PAID)
                 .paymentMethod(req.getPaymentMethod())
                 .transactionId("TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
@@ -347,10 +349,11 @@ public class BookingService {
                 }
             }
             // Recalculate price
-            long nights = ChronoUnit.DAYS.between(booking.getCheckIn(), booking.getCheckOut());
-            BigDecimal newPrice = booking.getProperty().getPricePerNight()
-                    .multiply(BigDecimal.valueOf(nights));
-            booking.setTotalPrice(newPrice);
+            BigDecimal newSubtotal = pricingService.calculateSubtotal(
+                booking.getProperty().getId(), booking.getCheckIn(), booking.getCheckOut());
+            BigDecimal cleaningFee = booking.getProperty().getCleaningFee() != null
+                ? booking.getProperty().getCleaningFee() : BigDecimal.ZERO;
+            booking.setTotalPrice(newSubtotal.add(cleaningFee));
             bookingRepository.save(booking);
         }
 

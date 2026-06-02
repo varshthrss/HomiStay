@@ -28,6 +28,8 @@ export function normalizeProperty(p) {
       longitude: p.longitude != null ? Number(p.longitude) : null
     },
     price: Number(p.pricePerNight ?? 0),
+    effectivePrice: p.effectivePricePerNight != null ? Number(p.effectivePricePerNight) : null,
+    seasonName: p.seasonName || null,
     cleaningFee: Number(p.cleaningFee ?? 0),
     rating: p.averageRating ?? 0,
     reviewCount: p.reviewCount ?? 0,

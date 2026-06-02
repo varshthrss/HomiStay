@@ -276,11 +276,20 @@ function PropertyDetailsPage() {
       setPricingBreakdown(null);
       return;
     }
-    const from = format(dates.from, "yyyy-MM-dd");
-    const to = format(dates.to, "yyyy-MM-dd");
+    let from, to;
+    try {
+      from = format(dates.from, "yyyy-MM-dd");
+      to = format(dates.to, "yyyy-MM-dd");
+    } catch {
+      setPricingBreakdown(null);
+      return;
+    }
     pricingApi.getBreakdown(id, from, to)
       .then(setPricingBreakdown)
-      .catch(() => setPricingBreakdown(null));
+      .catch((err) => {
+        console.error("Pricing breakdown fetch failed:", err);
+        setPricingBreakdown(null);
+      });
   }, [id, dates.from, dates.to]);
 
   useEffect(() => {
@@ -381,11 +390,15 @@ function PropertyDetailsPage() {
   // Let's use pricingBreakdown if available, otherwise calculate fallback values
   const basePrice = pricingBreakdown?.effectivePricePerNight != null
     ? Number(pricingBreakdown.effectivePricePerNight)
-    : (property ? Number(property.price) : 0);
+    : (pricingBreakdown?.basePricePerNight != null ? Number(pricingBreakdown.basePricePerNight) : (property ? Number(property.price) : 0));
+
+  const fallbackPrice = pricingBreakdown?.effectivePricePerNight != null
+    ? Number(pricingBreakdown.effectivePricePerNight)
+    : (property?.effectivePrice != null ? Number(property.effectivePrice) : (property ? Number(property.price) : 0));
 
   const subtotal = pricingBreakdown?.subtotal != null
     ? Number(pricingBreakdown.subtotal)
-    : basePrice * nights;
+    : fallbackPrice * nights;
 
   // Add-ons calculation: check which ones are selected in selectedAddons
   const addonCost = Object.entries(selectedAddons)
@@ -818,9 +831,20 @@ function PropertyDetailsPage() {
                   </Button>
                 )}
               </div>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="font-serif text-2xl font-bold">${property.price}</span>
-                <span className="text-muted-foreground">/night</span>
+              <div className="flex items-baseline gap-2 mb-6 flex-wrap">
+                {property.seasonName && property.effectivePrice && property.effectivePrice !== property.price ? (
+                  <>
+                    <span className="font-serif text-2xl font-bold">${property.effectivePrice}</span>
+                    <span className="text-muted-foreground">/night</span>
+                    <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded-full font-medium">{property.seasonName}</span>
+                    <span className="text-xs text-muted-foreground line-through">${property.price}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-serif text-2xl font-bold">${property.price}</span>
+                    <span className="text-muted-foreground">/night</span>
+                  </>
+                )}
               </div>
 
               {/* Step indicator */}
@@ -940,8 +964,16 @@ function PropertyDetailsPage() {
                           {pricingBreakdown.seasonalMultiplier && Number(pricingBreakdown.seasonalMultiplier) !== 1 && (
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Season rate ({pricingBreakdown.seasonName || "Seasonal"}):</span>
-                              <span className={Number(pricingBreakdown.seasonalMultiplier) > 1 ? "text-amber-600 font-medium" : "text-emerald-600 font-medium"}>
-                                {Number(pricingBreakdown.seasonalMultiplier) > 1 ? "+" : ""}{(Math.round((Number(pricingBreakdown.seasonalMultiplier) - 1) * 100))}%
+                              <span className="text-amber-600 font-medium">
+                                +{(Math.round((Number(pricingBreakdown.seasonalMultiplier) - 1) * 100))}%
+                              </span>
+                            </div>
+                          )}
+                          {pricingBreakdown.nightlyBreakdown?.some(n => n.fixedAmount > 0) && (
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Season fixed add ({pricingBreakdown.seasonName || "Seasonal"}):</span>
+                              <span className="text-amber-600 font-medium">
+                                +${Number(pricingBreakdown.nightlyBreakdown.find(n => n.fixedAmount > 0)?.fixedAmount || 0).toFixed(0)}/night
                               </span>
                             </div>
                           )}
@@ -966,10 +998,26 @@ function PropertyDetailsPage() {
                           </div>
                         </>
                       ) : (
-                        <div className="flex justify-between text-sm">
-                          <span>${property.price} × {nights} night{nights > 1 ? "s" : ""}</span>
-                          <span>${subtotal.toLocaleString()}</span>
-                        </div>
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span>Base: ${Number(property.price)} × {nights} night{nights > 1 ? "s" : ""}</span>
+                            <span>${(Number(property.price) * nights).toLocaleString()}</span>
+                          </div>
+                          {property.effectivePrice != null && Number(property.effectivePrice) !== Number(property.price) && (
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Seasonal rate{property.seasonName ? ` (${property.seasonName})` : ""}:</span>
+                              <span className="text-amber-600 font-medium">
+                                {Number(property.effectivePrice) > Number(property.price) ? "+" : ""}
+                                ${(Number(property.effectivePrice) - Number(property.price)).toFixed(0)}/night
+                              </span>
+                            </div>
+                          )}
+                          <Separator className="my-1 border-dashed" />
+                          <div className="flex justify-between text-sm font-medium">
+                            <span>Accommodation subtotal</span>
+                            <span>${subtotal.toLocaleString()}</span>
+                          </div>
+                        </>
                       )}
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Cleaning fee</span>

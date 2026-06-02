@@ -48,8 +48,18 @@ function PropertyCard({ property }) {
           </div>
           <p className="text-muted-foreground text-sm line-clamp-1">{property.title}</p>
           <div className="mt-1">
-            <span className="font-semibold text-foreground">${property.price}</span>
-            <span className="text-muted-foreground text-sm"> / night</span>
+            {property.seasonName && property.effectivePrice && property.effectivePrice !== property.price ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-foreground">${property.effectivePrice}</span>
+                <span className="text-muted-foreground text-sm">/ night</span>
+                <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded-full font-medium">{property.seasonName}</span>
+              </div>
+            ) : (
+              <>
+                <span className="font-semibold text-foreground">${property.price}</span>
+                <span className="text-muted-foreground text-sm"> / night</span>
+              </>
+            )}
           </div>
         </div>
       </div>

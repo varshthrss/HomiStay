@@ -67,35 +67,48 @@ public class PricingService {
         // Calculate effective nightly prices
         List<Map<String, Object>> nightlyBreakdown = new ArrayList<>();
         BigDecimal totalBeforeFees = BigDecimal.ZERO;
-        BigDecimal seasonalMultiplier = ONE;
-        BigDecimal demandMultiplier = ONE;
+        BigDecimal maxSeasonalMultiplier = ONE;
+        BigDecimal maxDemandMultiplier = ONE;
+        BigDecimal maxFixedAmount = BigDecimal.ZERO;
         String seasonName = null;
 
         LocalDate date = checkIn;
         while (date.isBefore(checkOut)) {
             BigDecimal nightPrice = basePricePerNight;
-
-            // Apply seasonal rate for this date (hardcoded defaults, then DB overrides)
             BigDecimal dateSeasonalMultiplier = ONE;
+            BigDecimal dateFixedAmount = BigDecimal.ZERO;
+
+            // Apply hardcoded default seasons first
             for (DefaultSeason ds : DEFAULT_SEASONS) {
                 if (ds.contains(date)) {
                     dateSeasonalMultiplier = ds.multiplier();
-                    if (seasonName == null) {
-                        seasonName = ds.name();
+                    if (seasonName == null) seasonName = ds.name();
+                    break;
+                }
+            }
+
+            // Then apply DB seasonal rates (override defaults)
+            for (SeasonalRate season : activeSeasons) {
+                if (!date.isBefore(season.getStartDate()) && !date.isAfter(season.getEndDate())) {
+                    seasonName = season.getName();
+                    BigDecimal adjVal = season.getAdjustmentValue() != null ? season.getAdjustmentValue() : BigDecimal.ZERO;
+                    if (season.getAdjustmentType() == SeasonalRate.AdjustmentType.PERCENTAGE) {
+                        dateSeasonalMultiplier = ONE.add(
+                            adjVal.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+                        dateFixedAmount = BigDecimal.ZERO;
+                    } else {
+                        dateSeasonalMultiplier = ONE;
+                        dateFixedAmount = adjVal;
                     }
                     break;
                 }
             }
-            for (SeasonalRate season : activeSeasons) {
-                if (!date.isBefore(season.getStartDate()) && !date.isAfter(season.getEndDate())) {
-                    dateSeasonalMultiplier = season.getPriceMultiplier();
-                    seasonName = season.getName();
-                    break;
-                }
-            }
-            nightPrice = nightPrice.multiply(dateSeasonalMultiplier).setScale(2, RoundingMode.HALF_UP);
 
-            // Apply demand-based multiplier for this date (auto if no config, or if host-enabled)
+            // Apply seasonal adjustment
+            nightPrice = nightPrice.multiply(dateSeasonalMultiplier).setScale(2, RoundingMode.HALF_UP);
+            nightPrice = nightPrice.add(dateFixedAmount).setScale(2, RoundingMode.HALF_UP);
+
+            // Apply demand-based multiplier
             BigDecimal dateDemandMultiplier = ONE;
             if (config == null || Boolean.TRUE.equals(config.getEnabled())) {
                 dateDemandMultiplier = calculateDemandMultiplier(propertyId, config);
@@ -106,29 +119,19 @@ public class PricingService {
             entry.put("date", date.toString());
             entry.put("basePrice", basePricePerNight);
             entry.put("seasonalMultiplier", dateSeasonalMultiplier);
+            entry.put("fixedAmount", dateFixedAmount);
             entry.put("demandMultiplier", dateDemandMultiplier);
             entry.put("effectivePrice", nightPrice);
             nightlyBreakdown.add(entry);
 
             totalBeforeFees = totalBeforeFees.add(nightPrice);
+            if (dateSeasonalMultiplier.compareTo(maxSeasonalMultiplier) > 0) maxSeasonalMultiplier = dateSeasonalMultiplier;
+            if (dateDemandMultiplier.compareTo(maxDemandMultiplier) > 0) maxDemandMultiplier = dateDemandMultiplier;
+            if (dateFixedAmount.compareTo(maxFixedAmount) > 0) maxFixedAmount = dateFixedAmount;
             date = date.plusDays(1);
         }
 
-        // Track the overall multipliers (use max across all dates)
-        BigDecimal maxSeasonalMultiplier = ONE;
-        BigDecimal maxDemandMultiplier = ONE;
-        for (Map<String, Object> entry : nightlyBreakdown) {
-            BigDecimal sm = (BigDecimal) entry.get("seasonalMultiplier");
-            BigDecimal dm = (BigDecimal) entry.get("demandMultiplier");
-            if (sm.compareTo(maxSeasonalMultiplier) > 0) maxSeasonalMultiplier = sm;
-            if (dm.compareTo(maxDemandMultiplier) > 0) maxDemandMultiplier = dm;
-        }
-
-        BigDecimal effectivePricePerNight = basePricePerNight
-                .multiply(maxSeasonalMultiplier)
-                .multiply(maxDemandMultiplier)
-                .setScale(2, RoundingMode.HALF_UP);
-
+        BigDecimal effectivePricePerNight = totalBeforeFees.divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP);
         BigDecimal subtotal = totalBeforeFees;
         BigDecimal total = subtotal.add(cleaningFee);
 
@@ -171,18 +174,16 @@ public class PricingService {
             minMultiplier = config.getMinPriceMultiplier();
             maxMultiplier = config.getMaxPriceMultiplier();
         } else {
-            // Auto demand pricing when host has not configured anything
             lookbackMonths = 3;
             demandThreshold = 5;
             minMultiplier = BigDecimal.valueOf(1.00);
             maxMultiplier = BigDecimal.valueOf(1.50);
         }
 
-        LocalDate since = LocalDate.now().minusMonths(lookbackMonths);
+        LocalDateTime since = LocalDateTime.now().minusMonths(lookbackMonths);
         long bookingCount = bookingRepository.countConfirmedBookingsSince(propertyId, since);
 
         if (bookingCount >= demandThreshold) {
-            // Scale proportionally: at threshold -> min, at threshold*2 -> max
             double ratio = Math.min(1.0, (double) bookingCount / (demandThreshold * 2));
             BigDecimal range = maxMultiplier.subtract(minMultiplier);
             BigDecimal multiplier = minMultiplier
