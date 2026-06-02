@@ -223,6 +223,10 @@ export const hostApi = {
     const { data } = await axiosInstance.get('/api/host/dashboard');
     return data;
   },
+  async monthlyEarnings() {
+    const { data } = await axiosInstance.get('/api/host/earnings/monthly');
+    return data;
+  },
   async myProperties(page = 0, size = 12) {
     const { data } = await axiosInstance.get('/api/host/properties', {
       params: { page, size },

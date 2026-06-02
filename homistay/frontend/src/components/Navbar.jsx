@@ -235,7 +235,7 @@ function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link href="/host/bookings" className="flex items-center w-full">
+                      <Link href="/host/my-bookings" className="flex items-center w-full">
                         <CalendarDays className="w-4 h-4 mr-2" /> Bookings
                       </Link>
                     </DropdownMenuItem>

@@ -4,7 +4,8 @@ import { useAppContext } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Users, CalendarDays, Mail, Phone, MessageSquareText, ClipboardList, CheckCircle2, X, XCircle, Clock, Send } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Users, CalendarDays, Mail, Phone, MessageSquareText, ClipboardList, CheckCircle2, X, XCircle, Clock, Send, Home } from "lucide-react";
 import { hostApi, bookingsApi, normalizeBooking } from "@/services/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
@@ -21,14 +22,16 @@ const modStatusColors = {
 };
 
 function HostBookingsPage() {
-  const { user } = useAppContext();
+  const { user, properties } = useAppContext();
   const [, setLocation] = useLocation();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [propertyFilter, setPropertyFilter] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState(null);
   const isHost = user?.role === "host" || user?.role === "admin";
+  const hostProperties = (user ? properties : []).filter((p) => p.hostId === user?.id);
 
   // Host Notes (Feature 2)
   const [hostNotes, setHostNotes] = useState("");
@@ -88,6 +91,7 @@ function HostBookingsPage() {
   }
 
   const filtered = bookings.filter((b) => {
+    if (propertyFilter !== "all" && String(b.propertyId) !== propertyFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return b.guestName?.toLowerCase().includes(q) || b.id?.toLowerCase().includes(q);
@@ -96,7 +100,6 @@ function HostBookingsPage() {
   const counts = {
     all: bookings.length,
     confirmed: bookings.filter((b) => b.status === "confirmed").length,
-    pending: bookings.filter((b) => b.status === "pending").length,
     cancelled: bookings.filter((b) => b.status === "cancelled").length,
   };
 
@@ -203,12 +206,26 @@ function HostBookingsPage() {
         </div>
 
         <div className="flex items-center gap-2 mb-6 flex-wrap">
-          {["all", "confirmed", "pending", "cancelled"].map((status) => (
+          {["all", "confirmed", "cancelled"].map((status) => (
             <button key={status} onClick={() => setStatusFilter(status)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${statusFilter === status ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80 text-muted-foreground"}`}>
               {status.charAt(0).toUpperCase() + status.slice(1)} ({counts[status]})
             </button>
           ))}
+          <div className="ml-auto flex items-center gap-2">
+            <Home className="w-4 h-4 text-muted-foreground" />
+            <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+              <SelectTrigger className="w-56 rounded-full h-9 text-sm">
+                <SelectValue placeholder="All properties" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                <SelectItem value="all">All properties</SelectItem>
+                {hostProperties.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="relative max-w-md mb-6">

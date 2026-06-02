@@ -16,7 +16,7 @@ function getDayStatus(day, bookings, propertyId, blockedDates) {
     const start = parseISO(booking.checkIn);
     const end = subDays(parseISO(booking.checkOut), 1);
     if (isWithinInterval(day, { start, end })) {
-      return booking.status === "confirmed" ? "confirmed" : "pending";
+      return "confirmed";
     }
   }
 
@@ -95,14 +95,12 @@ function HostCalendarPage() {
 
   const statusStyles = {
     confirmed: "bg-primary/20 text-primary font-semibold rounded-lg cursor-pointer hover:bg-primary/30",
-    pending: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 font-semibold rounded-lg cursor-pointer hover:bg-amber-200/50",
     host_blocked: "bg-neutral-200 text-neutral-500 line-through dark:bg-neutral-800 dark:text-neutral-400 rounded-lg cursor-pointer hover:bg-neutral-300 dark:hover:bg-neutral-700",
     available: "hover:bg-muted/60 rounded-lg cursor-pointer text-foreground border border-dashed border-border/50"
   };
 
   const legend = [
     { color: "bg-primary/20", label: "Confirmed" },
-    { color: "bg-amber-200", label: "Pending" },
     { color: "bg-neutral-200 line-through text-neutral-500", label: "Host Blocked" },
     { color: "bg-background border border-dashed", label: "Available" }
   ];
@@ -172,7 +170,7 @@ function HostCalendarPage() {
 
   // Find booking details if the clicked day falls under a booking
   let activeBooking = null;
-  if (selectedDay && (selectedDay.status === "confirmed" || selectedDay.status === "pending")) {
+  if (selectedDay && selectedDay.status === "confirmed") {
     activeBooking = bookings.find(
       (b) =>
         b.propertyId === activePropertyId &&
@@ -187,26 +185,16 @@ function HostCalendarPage() {
   return (
     <div className="min-h-screen bg-background py-8">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
           <div>
             <h1 className="font-serif text-2xl font-bold animate-in fade-in duration-300">Calendar</h1>
             <p className="text-muted-foreground text-xs mt-0.5">Manage availability and blocks for your properties</p>
           </div>
-          <div className="flex items-center gap-2">
+          {activePropertyId && (
             <Button variant="outline" size="sm" className="rounded-full gap-1.5 h-8 text-xs" onClick={() => { setIsBulkOpen(true); setActionError(""); }}>
               <CalendarDays className="w-3.5 h-3.5" /> Block / Unblock Range
             </Button>
-            {hostProps.length > 0 && (
-              <Select value={String(activePropertyId)} onValueChange={setSelectedPropertyId}>
-                <SelectTrigger className="w-56 rounded-full" data-testid="select-property">
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent>
-                  {hostProps.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          )}
         </div>
 
         {hostProps.length === 0 ? (
@@ -215,85 +203,152 @@ function HostCalendarPage() {
             <p className="text-muted-foreground">Add a property to manage its calendar.</p>
           </div>
         ) : (
-          <div className="bg-card border rounded-2xl p-4 shadow-sm relative">
-            {loadingBlocked && (
-              <div className="absolute inset-0 bg-background/50 backdrop-blur-xs flex items-center justify-center rounded-2xl z-10">
-                <span className="text-sm font-medium">Updating availability map…</span>
-              </div>
-            )}
-
-            {/* Calendar Controls */}
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-serif text-base font-semibold">{format(currentMonth, "MMM yyyy")}</h2>
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => setCurrentMonth((m) => subMonths(m, 1))} data-testid="button-prev-month">
-                  <ChevronLeft className="w-3 h-3" />
-                </Button>
-                <Button variant="outline" size="sm" className="rounded-full h-7 text-xs px-2" onClick={() => setCurrentMonth(new Date())}>Today</Button>
-                <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => setCurrentMonth((m) => addMonths(m, 1))} data-testid="button-next-month">
-                  <ChevronRight className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Day labels */}
-            <div className="grid grid-cols-7 mb-1">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-1">{d}</div>
-              ))}
-            </div>
-
-            {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-0.5">
-              {cells.map((day, i) => {
-                if (!day) return <div key={i} />;
-                const status = getDayStatus(day, bookings, activePropertyId, blockedDates);
-                return (
-                  <div
-                    key={i}
-                    className={`h-8 flex items-center justify-center text-xs transition-colors ${statusStyles[status]} ${isToday(day) ? "ring-2 ring-primary" : ""} ${!isSameMonth(day, currentMonth) ? "opacity-30" : ""}`}
-                    data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
-                    onClick={() => handleDayClick(day, status)}
-                  >
-                    {format(day, "d")}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t flex-wrap">
-              {legend.map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5 text-xs">
-                  <div className={`w-3 h-3 rounded ${item.color}`} />
-                  <span className="text-muted-foreground">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Selected property info */}
-            {activePropertyId && (
-              <div className="mt-3 pt-3 border-t">
-                {(() => {
-                  const prop = hostProps.find((p) => p.id === activePropertyId);
-                  const propBookings = bookings.filter((b) => b.propertyId === activePropertyId && b.status !== "cancelled");
-                  return prop ? (
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                      <div className="flex items-center gap-3">
-                        <img src={prop.images[0]} alt={prop.title} className="w-12 h-10 object-cover rounded-lg" />
-                        <div>
-                          <p className="font-medium text-sm">{prop.title}</p>
-                          <p className="text-xs text-muted-foreground">{prop.location.city}, {prop.location.country}</p>
+          <div className="flex gap-6">
+            {/* Left Sidebar — Property List */}
+            <div className="w-72 shrink-0 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Your Properties</p>
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                {hostProps.map((prop) => {
+                  const propBookings = bookings.filter((b) => b.propertyId === prop.id && b.status !== "cancelled");
+                  const isSelected = String(prop.id) === String(activePropertyId);
+                  return (
+                    <button
+                      key={prop.id}
+                      onClick={() => setSelectedPropertyId(String(prop.id))}
+                      className={`w-full text-left rounded-xl p-3 border transition-colors ${isSelected ? "bg-primary/5 border-primary/30 shadow-sm" : "bg-card border-border/50 hover:bg-muted/50"}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={prop.images?.[0] || "/placeholder.jpg"}
+                          alt={prop.title}
+                          className="w-14 h-12 object-cover rounded-lg shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{prop.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{prop.location?.city}, {prop.location?.country}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <span className="font-medium text-foreground">{propBookings.length}</span> booking{propBookings.length !== 1 ? "s" : ""}
+                          </p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{propBookings.length}</span> upcoming booking{propBookings.length !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  ) : null;
-                })()}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
+
+            {/* Right Side — Calendar */}
+            <div className="flex-1 bg-card border rounded-2xl p-4 shadow-sm relative">
+              {loadingBlocked && (
+                <div className="absolute inset-0 bg-background/50 backdrop-blur-xs flex items-center justify-center rounded-2xl z-10">
+                  <span className="text-sm font-medium">Updating availability map…</span>
+                </div>
+              )}
+
+              {/* Calendar Controls */}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-serif text-base font-semibold">{format(currentMonth, "MMM yyyy")}</h2>
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => setCurrentMonth((m) => subMonths(m, 1))} data-testid="button-prev-month">
+                    <ChevronLeft className="w-3 h-3" />
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-full h-7 text-xs px-2" onClick={() => setCurrentMonth(new Date())}>Today</Button>
+                  <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => setCurrentMonth((m) => addMonths(m, 1))} data-testid="button-next-month">
+                    <ChevronRight className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Day labels */}
+              <div className="grid grid-cols-7 mb-1">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                  <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-1">{d}</div>
+                ))}
+              </div>
+
+              {/* Calendar grid */}
+              <div className="grid grid-cols-7 gap-0.5">
+                {cells.map((day, i) => {
+                  if (!day) return <div key={i} />;
+                  const status = getDayStatus(day, bookings, activePropertyId, blockedDates);
+                  return (
+                    <div
+                      key={i}
+                      className={`h-8 flex items-center justify-center text-xs transition-colors ${statusStyles[status]} ${isToday(day) ? "ring-2 ring-primary" : ""} ${!isSameMonth(day, currentMonth) ? "opacity-30" : ""}`}
+                      data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+                      onClick={() => handleDayClick(day, status)}
+                    >
+                      {format(day, "d")}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t flex-wrap">
+                {legend.map((item) => (
+                  <div key={item.label} className="flex items-center gap-1.5 text-xs">
+                    <div className={`w-3 h-3 rounded ${item.color}`} />
+                    <span className="text-muted-foreground">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Upcoming Bookings */}
+              {activePropertyId && (() => {
+                const upcoming = bookings.filter((b) => {
+                  if (String(b.propertyId) !== String(activePropertyId)) return false;
+                  if (b.status === "cancelled") return false;
+                  return new Date(b.checkIn) >= new Date(new Date().toDateString());
+                }).sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn));
+
+                if (upcoming.length === 0) {
+                  return (
+                    <div className="mt-4 pt-4 border-t">
+                      <h3 className="text-sm font-semibold mb-3">Upcoming Bookings</h3>
+                      <p className="text-sm text-muted-foreground text-center py-6 bg-muted/20 rounded-xl">No upcoming bookings</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="mt-4 pt-4 border-t">
+                    <h3 className="text-sm font-semibold mb-3">Upcoming Bookings ({upcoming.length})</h3>
+                    <div className="space-y-2">
+                      {upcoming.map((b) => {
+                        const checkInDate = parseISO(b.checkIn);
+                        return (
+                          <button
+                            key={b.id}
+                            onClick={() => {
+                              setCurrentMonth(startOfMonth(checkInDate));
+                              setSelectedDay({ day: checkInDate, status: "confirmed" });
+                              setIsManageOpen(true);
+                              setActionError("");
+                            }}
+                            className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/60 transition-colors text-left"
+                          >
+                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                              {format(checkInDate, "d")}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{b.guestName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(checkInDate, "MMM d")} – {format(parseISO(b.checkOut), "MMM d, yyyy")}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-semibold">${b.totalPrice.toLocaleString()}</p>
+                              <span className="text-[10px] text-muted-foreground">{b.guests} guest{b.guests !== 1 ? "s" : ""}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
       </div>

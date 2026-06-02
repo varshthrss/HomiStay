@@ -10,8 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
+import com.homistay.dto.response.MonthlyEarningsResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -64,6 +66,24 @@ public class HostDashboardService {
                 .averageRating(averageRating)
                 .recentBookings(recentBookings)
                 .build();
+    }
+
+    public List<MonthlyEarningsResponse> getMonthlyEarnings(String hostEmail) {
+        User host = userRepository.findByEmail(hostEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<Object[]> rows = paymentRepository.monthlyEarningsSince(host.getId(), LocalDateTime.now().minusMonths(12));
+
+        List<MonthlyEarningsResponse> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            String month = (String) row[0];
+            BigDecimal amount = (BigDecimal) row[2];
+            result.add(MonthlyEarningsResponse.builder()
+                    .month(month)
+                    .amount(amount != null ? amount : BigDecimal.ZERO)
+                    .build());
+        }
+        return result;
     }
 }
 

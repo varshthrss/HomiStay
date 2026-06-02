@@ -1,6 +1,6 @@
 Homistay Project - Progress Log
 =================================
-Last updated: 2026-05-27
+Last updated: 2026-06-02
 
 PROJECT OVERVIEW
 ----------------
@@ -409,3 +409,21 @@ LAYOUT & UI CHANGES (2026-05-27 - Session 5)
 - Smaller navigation buttons (h-7 w-7, w-3 h-3 icons)
 - Condensed spacing throughout: margins, padding, legend, and property info section
 - Smaller font sizes for month label and legend text
+
+RECENT CHANGES (2026-06-02)
+---------------------------
+
+[Backend]
+- Fixed POM packaging (pom -> jar) & removed unused demo module so `mvn spring-boot:run` works
+- Backend running on port 8090
+
+[Profile Page - All Users]
+- Added Full Name editable input field in edit mode (was missing)
+- DOB validation enforces age >= 16 years
+- Gender options restricted to Male / Female / Other only (removed "Prefer not to say")
+- Phone field shows inline error when alphabets are typed
+- Password validation: min 8 characters, must contain letter + number + symbol (applied to both Profile change password and Navbar registration)
+
+[Security Audit]
+- Generated SECURITY_AUDIT.md with full findings (17 issues: 4 critical, 9 medium, 4 low)
+- Spring Boot upgrade from 3.2.5 to 3.4.x assessed as low-risk (~2-3 hours)

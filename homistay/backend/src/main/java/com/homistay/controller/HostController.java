@@ -6,6 +6,7 @@ import com.homistay.dto.response.AddonResponse;
 import jakarta.validation.Valid;
 import com.homistay.dto.response.BookingResponse;
 import com.homistay.dto.response.HostDashboardResponse;
+import com.homistay.dto.response.MonthlyEarningsResponse;
 import com.homistay.dto.response.PageResponse;
 import com.homistay.dto.response.PropertyResponse;
 import com.homistay.enums.BookingStatus;
@@ -41,6 +42,13 @@ public class HostController {
     public ResponseEntity<HostDashboardResponse> dashboard(
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(dashboardService.getDashboard(userDetails.getUsername()));
+    }
+
+    @GetMapping("/earnings/monthly")
+    @Operation(summary = "Monthly earnings breakdown for the past 12 months")
+    public ResponseEntity<List<MonthlyEarningsResponse>> monthlyEarnings(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(dashboardService.getMonthlyEarnings(userDetails.getUsername()));
     }
 
     @GetMapping("/properties")

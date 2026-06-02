@@ -38,8 +38,6 @@ function HostDashboard() {
   const monthlyEarnings = dashboard?.monthlyEarnings ?? 0;
   const activeListings = dashboard?.activeProperties ?? dashboard?.activeListings ?? 0;
   const confirmedBookings = dashboard?.confirmedBookings ?? 0;
-  const pendingBookings = dashboard?.pendingBookings ?? 0;
-  const totalBookings = dashboard?.totalBookings ?? 0;
   const avgRating = dashboard?.averageRating ? Number(dashboard.averageRating).toFixed(1) : "—";
   const recentBookings = (dashboard?.recentBookings ?? []).map(normalizeBooking);
 
@@ -69,7 +67,7 @@ function HostDashboard() {
             { label: "Total Earnings", value: `$${Number(totalEarnings).toLocaleString()}`, icon: DollarSign, sub: "All time", color: "text-green-600" },
             { label: "Monthly Earnings", value: `$${Number(monthlyEarnings).toLocaleString()}`, icon: TrendingUp, sub: "Last 30 days", color: "text-emerald-500" },
             { label: "Active Listings", value: activeListings, icon: Home, sub: "properties", color: "text-blue-600" },
-            { label: "Confirmed Bookings", value: confirmedBookings, icon: CalendarDays, sub: `${pendingBookings} pending`, color: "text-primary" },
+            { label: "Confirmed Bookings", value: confirmedBookings, icon: CalendarDays, sub: "Total bookings", color: "text-primary" },
             { label: "Average Rating", value: avgRating, icon: Star, sub: "Across all properties", color: "text-amber-500" },
           ].map((stat) => (
             <div key={stat.label} className="bg-card border rounded-2xl p-5">
