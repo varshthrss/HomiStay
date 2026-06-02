@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Menu, UserCircle, LogOut, LayoutDashboard, Home as HomeIcon,
-  CalendarDays, PlusCircle, CreditCard, Heart, Search, Headset, DollarSign,
+  CalendarDays, PlusCircle, CreditCard, Heart, Search, Headset, DollarSign, Map,
 } from "lucide-react";
+import { TripPlanner } from "./TripPlanner";
 import { Button } from "./ui/button";
 import { useAppContext } from "@/context/AppContext";
 import {
@@ -31,6 +32,7 @@ function Navbar() {
   const [authError, setAuthError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registerAsHost, setRegisterAsHost] = useState(false);
+  const [isTripPlannerOpen, setIsTripPlannerOpen] = useState(false);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchParams, setSearchParams] = useState({ destination: "", checkin: null, checkout: null, guests: 0 });
@@ -148,6 +150,23 @@ function Navbar() {
         )}
 
         <div className="flex items-center gap-4">
+          {/* Trip Planner button — visible to all on desktop */}
+          <div className="hidden md:block">
+            <Button
+              variant="ghost"
+              className="font-semibold text-sm gap-1.5"
+              onClick={() => {
+                if (!user) {
+                  window.dispatchEvent(new CustomEvent('open-auth', { detail: { mode: 'login' } }));
+                } else {
+                  setIsTripPlannerOpen(true);
+                }
+              }}
+            >
+              <Map className="w-4 h-4" />
+              Trip Planner
+            </Button>
+          </div>
           {!user && (
             <div className="hidden md:block">
               <Button
@@ -205,6 +224,10 @@ function Navbar() {
                   <Link href="/profile" className="flex items-center w-full">
                     <UserCircle className="w-4 h-4 mr-2" /> Profile
                   </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={() => setIsTripPlannerOpen(true)} className="rounded-lg cursor-pointer">
+                  <Map className="w-4 h-4 mr-2" /> Trip Planner
                 </DropdownMenuItem>
 
                 {isGuest && (
@@ -406,6 +429,9 @@ function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Trip Planner Dialog */}
+      <TripPlanner open={isTripPlannerOpen} onOpenChange={setIsTripPlannerOpen} />
     </header>
   );
 }

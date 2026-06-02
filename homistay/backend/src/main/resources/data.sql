@@ -138,7 +138,31 @@ VALUES
   (19, 2, 'Norwegian Fjord Cabin',
    'A remote timber cabin perched above a dramatic Norwegian fjord. Hike, kayak, and fish in summer, or witness the Northern Lights dancing overhead in winter. Total serenity in one of the most beautiful landscapes on Earth.',
    'CABIN', 'Flam', 'Norway', 'Sognefjord Panorama', 60.8629, 7.1134,
-   270.00, 4, 2, 1, 'Indoor fireplace,Kitchen,Free parking,Fjord view,Kayak,Sauna', true, NOW())
+   270.00, 4, 2, 1, 'Indoor fireplace,Kitchen,Free parking,Fjord view,Kayak,Sauna', true, NOW()),
+
+  -- 20. Goa Apartment
+  (20, 2, 'Modern Condo near Baga Beach',
+   'A stylish and contemporary apartment located minutes away from the famous Baga Beach. Features a shared pool, air conditioning, modern kitchen, and easy access to local cafes, restaurants, and nightlife.',
+   'APARTMENT', 'Goa', 'India', 'Baga-Calangute Road', 15.5550, 73.7580,
+   130.00, 3, 1, 1, 'WiFi,Kitchen,Pool,Air conditioning,Free parking', true, NOW()),
+
+  -- 21. Goa Cabin
+  (21, 2, 'Secluded Jungle Cabin in South Goa',
+   'Nestled deep in the lush green canopy of South Goa, this wooden cabin offers peace and tranquility. Perfect for nature lovers, features outdoor seating, eco-toilet, and is close to wildlife and waterfall trails.',
+   'CABIN', 'Goa', 'India', 'Netravali Wildlife Sanctuary Road', 15.1023, 74.1245,
+   110.00, 2, 1, 1, 'WiFi,Free parking,Patio or balcony,Garden view', true, NOW()),
+
+  -- 22. Mumbai Apartment
+  (22, 2, 'Chic Apartment in Bandra',
+   'A trendy boutique apartment located in Mumbai''s most vibrant neighborhood. Surrounded by high-end shopping, art galleries, and famous cafes. Features modern design, high-speed WiFi, and a cozy workspace.',
+   'APARTMENT', 'Mumbai', 'India', 'Carter Road, Bandra West', 19.0544, 72.8402,
+   95.00, 2, 1, 1, 'WiFi,Kitchen,Washer,TV,Workspace,Air conditioning,City view', true, NOW()),
+
+  -- 23. Mumbai Villa
+  (23, 2, 'Luxury Villa near Juhu Beach',
+   'An expansive, beautifully designed private villa near Juhu Beach. Features a stunning private garden, spacious living areas, and state-of-the-art kitchen. Ideal for groups or families seeking a premium retreat.',
+   'VILLA', 'Mumbai', 'India', 'Juhu Tara Road', 19.1020, 72.8250,
+   290.00, 8, 4, 4, 'WiFi,Kitchen,Air conditioning,Rooftop terrace,Barbecue grill,City view,Free parking,Garden view', true, NOW())
 ON CONFLICT (id) DO UPDATE SET
   latitude  = EXCLUDED.latitude,
   longitude = EXCLUDED.longitude,
@@ -237,7 +261,19 @@ INSERT INTO property_images (id, property_id, url, display_order, is_primary) VA
   (50, 18, 'https://a0.muscache.com/im/pictures/101092129/ecc31253_original.jpg?aki_policy=large', 0, true),
 
   -- Norwegian Fjord Cabin (19)
-  (51, 19, 'https://a0.muscache.com/im/pictures/37652090/31aa73c7_original.jpg?aki_policy=large', 0, true)
+  (51, 19, 'https://a0.muscache.com/im/pictures/37652090/31aa73c7_original.jpg?aki_policy=large', 0, true),
+
+  -- Goa Condo (20)
+  (52, 20, 'https://a0.muscache.com/im/pictures/12064872/b9a3028c_original.jpg?aki_policy=large', 0, true),
+
+  -- Goa Jungle Cabin (21)
+  (53, 21, 'https://a0.muscache.com/im/pictures/74032130/331a98cd_original.jpg?aki_policy=large', 0, true),
+
+  -- Mumbai Bandra (22)
+  (54, 22, 'https://a0.muscache.com/im/pictures/47201864/cc882bd7_original.jpg?aki_policy=large', 0, true),
+
+  -- Mumbai Villa (23)
+  (55, 23, 'https://a0.muscache.com/im/pictures/27301062/770cf8b2_original.jpg?aki_policy=large', 0, true)
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('property_images_id_seq', (SELECT MAX(id) FROM property_images));
@@ -549,12 +585,16 @@ ON CONFLICT (id) DO NOTHING;
 SELECT setval('property_addons_id_seq', (SELECT MAX(id) FROM property_addons));
 
 -- ── Guest requirements for existing properties (Feature 5) ──
-UPDATE properties SET guest_requirements = 'Government ID required, No smoking, No parties/events' WHERE id IN (1, 4, 6, 14, 18);
-UPDATE properties SET guest_requirements = 'Government ID required, Minimum age 21, Security deposit required' WHERE id IN (3, 11, 15, 17, 19);
-UPDATE properties SET guest_requirements = 'Government ID required, Minimum age 18, No parties/events' WHERE id IN (2, 5, 7, 8, 9, 10, 12, 13, 16);
+UPDATE properties SET guest_requirements = 'Government ID required, No smoking, No parties/events' WHERE id IN (1, 4, 6, 14, 18, 20, 21);
+UPDATE properties SET guest_requirements = 'Government ID required, Minimum age 21, Security deposit required' WHERE id IN (3, 11, 15, 17, 19, 23);
+UPDATE properties SET guest_requirements = 'Government ID required, Minimum age 18, No parties/events' WHERE id IN (2, 5, 7, 8, 9, 10, 12, 13, 16, 22);
 
 -- ── Check-in instructions for existing properties (Feature 1) ──
 UPDATE properties SET check_in_instructions = E'WiFi: BeachVilla_5G / Password: goa2025\nDoor code: #2580\nParking: Driveway fits 2 cars\nCheck-in: Keys in lockbox at front gate. Code sent via SMS.\nEmergency: Contact host at +91-98765-43210' WHERE id = 1;
 UPDATE properties SET check_in_instructions = E'WiFi: IndiraNet / Password: bengaluru123\nDoor code: 7711\nCheck-in: Building has 24/7 security. Use intercom at gate.\nParking: Visitor parking in basement level B2.' WHERE id = 2;
 UPDATE properties SET check_in_instructions = E'WiFi: ManaliCabin / Password: himalayas!\nDoor code: Enter through main door (unlocked during day, key under mat at night)\nHeating: Thermostat in living room. Fireplace has wood stacked on deck.\nNote: Roads can be slippery in winter \u2014 4WD recommended.' WHERE id = 3;
 UPDATE properties SET check_in_instructions = E'WiFi: HeritageHouse / Password: portugal2025\nDoor code: Key at front desk (host lives next door)\nParking: Street parking available\nCheck-in: 2 PM onwards. Late check-in must be arranged.' WHERE id = 5;
+UPDATE properties SET check_in_instructions = E'WiFi: GoaCondo_5G / Password: bagabeach\nDoor code: 2020\nCheck-in: Intercom 202 at gate. Keys in mailbox.' WHERE id = 20;
+UPDATE properties SET check_in_instructions = E'WiFi: JungleCabin / Password: naturelovers\nCheck-in: Host will meet you at the Netravali sanctuary gate.' WHERE id = 21;
+UPDATE properties SET check_in_instructions = E'WiFi: BandraCondo / Password: bandra95\nDoor code: 1905\nCheck-in: Elevators require keycard. Concierge has keycard.' WHERE id = 22;
+UPDATE properties SET check_in_instructions = E'WiFi: JuhuVilla / Password: oceanview23\nDoor code: 1910\nCheck-in: Main gate is locked. Guard will open with your ID.' WHERE id = 23;
