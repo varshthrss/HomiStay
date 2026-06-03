@@ -1,5 +1,7 @@
 import axiosInstance from '../api/axiosInstance';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8090';
+
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 export function isRealId(id) {
@@ -26,6 +28,8 @@ export function normalizeProperty(p) {
       longitude: p.longitude != null ? Number(p.longitude) : null
     },
     price: Number(p.pricePerNight ?? 0),
+    effectivePrice: p.effectivePricePerNight != null ? Number(p.effectivePricePerNight) : null,
+    seasonName: p.seasonName || null,
     cleaningFee: Number(p.cleaningFee ?? 0),
     rating: p.averageRating ?? 0,
     reviewCount: p.reviewCount ?? 0,
@@ -96,6 +100,10 @@ export function normalizeBooking(b) {
 
 export function normalizeUser(u) {
   const name = u.fullName?.trim() || '';
+  let avatar = u.avatarUrl?.trim();
+  if (avatar && avatar.startsWith('/uploads/')) {
+    avatar = API_BASE + avatar;
+  }
   return {
     id: String(u.id),
     name: name || null,
@@ -105,9 +113,7 @@ export function normalizeUser(u) {
     dob: u.dob || null,
     gender: u.gender?.trim() || null,
     role: (u.role || '').toLowerCase(),
-    avatar:
-      (u.avatarUrl?.trim()) ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(name || u.email)}&background=random`,
+    avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || u.email)}&background=random`,
   };
 }
 
@@ -136,7 +142,9 @@ export const authApi = {
     return data;
   },
   async updateProfile(payload) {
-    const { data } = await axiosInstance.put('/api/auth/profile', payload);
+    const isFormData = payload instanceof FormData;
+    const config = isFormData ? { headers: { 'Content-Type': undefined } } : {};
+    const { data } = await axiosInstance.put('/api/auth/profile', payload, config);
     return data;
   },
   async changePassword(payload) {

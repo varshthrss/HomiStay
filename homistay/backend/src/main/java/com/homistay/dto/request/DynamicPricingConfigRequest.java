@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 
 @Data
 public class DynamicPricingConfigRequest {
+    private Long propertyId;
     private Boolean enabled;
     private BigDecimal minPriceMultiplier;
     private BigDecimal maxPriceMultiplier;

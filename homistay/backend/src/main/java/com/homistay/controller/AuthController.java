@@ -13,10 +13,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -60,12 +62,13 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/profile")
+    @PutMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Update current user profile", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<UserResponse> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody UpdateProfileRequest req) {
-        return ResponseEntity.ok(authService.updateProfile(userDetails.getUsername(), req));
+            @RequestPart("data") @Valid UpdateProfileRequest req,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        return ResponseEntity.ok(authService.updateProfile(userDetails.getUsername(), req, file));
     }
 
     @PutMapping("/upgrade")

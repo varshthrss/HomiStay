@@ -11,11 +11,20 @@ import com.homistay.exception.BusinessException;
 import com.homistay.repository.UserRepository;
 import com.homistay.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.annotation.PostConstruct;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +35,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
+
+    @Value("${app.profile.upload.dir:uploads/profile}")
+    private String uploadDir;
+
+    @PostConstruct
+    public void init() {
+        try {
+            Files.createDirectories(Paths.get(uploadDir));
+        } catch (IOException e) {
+            throw new RuntimeException("Could not create upload directory: " + uploadDir, e);
+        }
+    }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -69,11 +90,10 @@ public class AuthService {
     }
 
     @Transactional
-    public UserResponse updateProfile(String email, com.homistay.dto.request.UpdateProfileRequest request) {
+    public UserResponse updateProfile(String email, com.homistay.dto.request.UpdateProfileRequest request, MultipartFile file) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException("User not found"));
 
-        // Only update fields that are explicitly provided and non-blank
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName().trim());
         }
@@ -89,12 +109,32 @@ public class AuthService {
         if (request.getGender() != null && !request.getGender().isBlank()) {
             user.setGender(request.getGender().trim());
         }
-        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
+
+        if (file != null && !file.isEmpty()) {
+            String fileName = saveFile(file);
+            user.setAvatarUrl("/uploads/profile/" + fileName);
+        } else if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
             user.setAvatarUrl(request.getAvatarUrl().trim());
         }
 
         userRepository.save(user);
         return mapToUserResponse(user);
+    }
+
+    private String saveFile(MultipartFile file) {
+        try {
+            String originalName = file.getOriginalFilename();
+            String extension = "";
+            if (originalName != null && originalName.contains(".")) {
+                extension = originalName.substring(originalName.lastIndexOf("."));
+            }
+            String fileName = UUID.randomUUID().toString() + extension;
+            Path filePath = Paths.get(uploadDir, fileName);
+            Files.copy(file.getInputStream(), filePath);
+            return fileName;
+        } catch (IOException e) {
+            throw new BusinessException("Failed to upload file: " + e.getMessage());
+        }
     }
 
     @Transactional

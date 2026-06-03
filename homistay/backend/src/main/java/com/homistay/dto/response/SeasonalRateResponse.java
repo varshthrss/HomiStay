@@ -12,6 +12,7 @@ public class SeasonalRateResponse {
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
-    private BigDecimal priceMultiplier;
+    private String adjustmentType;
+    private BigDecimal adjustmentValue;
     private Boolean isActive;
 }

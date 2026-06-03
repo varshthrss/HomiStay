@@ -66,6 +66,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     """)
     long countConfirmedBookingsSince(
         @Param("propertyId") Long propertyId,
-        @Param("since")      java.time.LocalDate since
+        @Param("since")      java.time.LocalDateTime since
     );
 }

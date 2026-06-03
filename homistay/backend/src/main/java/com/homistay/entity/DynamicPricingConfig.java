@@ -17,19 +17,19 @@ public class DynamicPricingConfig {
     @JoinColumn(name = "property_id", nullable = false, unique = true)
     private Property property;
 
-    private Boolean enabled;
+    @Builder.Default private Boolean enabled = false;
 
     @Column(name = "min_price_multiplier", nullable = false)
-    private BigDecimal minPriceMultiplier;
+    @Builder.Default private BigDecimal minPriceMultiplier = BigDecimal.valueOf(1.00);
 
     @Column(name = "max_price_multiplier", nullable = false)
-    private BigDecimal maxPriceMultiplier;
+    @Builder.Default private BigDecimal maxPriceMultiplier = BigDecimal.valueOf(2.00);
 
     @Column(name = "demand_threshold", nullable = false)
-    private Integer demandThreshold;
+    @Builder.Default private Integer demandThreshold = 5;
 
     @Column(name = "lookback_months", nullable = false)
-    private Integer lookbackMonths;
+    @Builder.Default private Integer lookbackMonths = 3;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

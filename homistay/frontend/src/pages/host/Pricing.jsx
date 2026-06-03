@@ -34,8 +34,10 @@ function HostPricingPage() {
   // Season dialog
   const [seasonDialog, setSeasonDialog] = useState({ open: false, edit: null });
   const [seasonForm, setSeasonForm] = useState({
-    name: "", startDate: "", endDate: "", priceMultiplier: "1.50",
+    name: "", startDate: "", endDate: "", adjustmentType: "PERCENTAGE", adjustmentValue: "50",
   });
+  const [applyToAll, setApplyToAll] = useState(false);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState([]);
   const [savingSeason, setSavingSeason] = useState(false);
 
   const [actionMsg, setActionMsg] = useState("");
@@ -88,7 +90,9 @@ function HostPricingPage() {
   // ── Season rate handlers ──
 
   const openAddSeason = () => {
-    setSeasonForm({ name: "", startDate: "", endDate: "", priceMultiplier: "1.50" });
+    setSeasonForm({ name: "", startDate: "", endDate: "", adjustmentType: "PERCENTAGE", adjustmentValue: "50" });
+    setApplyToAll(false);
+    setSelectedPropertyIds([]);
     setSeasonDialog({ open: true, edit: null });
   };
 
@@ -97,7 +101,8 @@ function HostPricingPage() {
       name: rate.name,
       startDate: rate.startDate,
       endDate: rate.endDate,
-      priceMultiplier: String(rate.priceMultiplier),
+      adjustmentType: rate.adjustmentType || "PERCENTAGE",
+      adjustmentValue: String(rate.adjustmentValue ?? 50),
     });
     setSeasonDialog({ open: true, edit: rate });
   };
@@ -106,16 +111,30 @@ function HostPricingPage() {
     if (!seasonForm.name.trim() || !seasonForm.startDate || !seasonForm.endDate) return;
     setSavingSeason(true);
     try {
-      const payload = {
-        propertyId: Number(selectedPropertyId),
-        name: seasonForm.name.trim(),
-        startDate: seasonForm.startDate,
-        endDate: seasonForm.endDate,
-        priceMultiplier: Number(seasonForm.priceMultiplier),
-      };
       if (seasonDialog.edit) {
-        await pricingApi.updateSeasonalRate(seasonDialog.edit.id, payload);
+        await pricingApi.updateSeasonalRate(seasonDialog.edit.id, {
+          propertyId: Number(selectedPropertyId),
+          name: seasonForm.name.trim(),
+          startDate: seasonForm.startDate,
+          endDate: seasonForm.endDate,
+          adjustmentType: seasonForm.adjustmentType,
+          adjustmentValue: Number(seasonForm.adjustmentValue),
+        });
       } else {
+        const payload = {
+          name: seasonForm.name.trim(),
+          startDate: seasonForm.startDate,
+          endDate: seasonForm.endDate,
+          adjustmentType: seasonForm.adjustmentType,
+          adjustmentValue: Number(seasonForm.adjustmentValue),
+        };
+        if (applyToAll) {
+          payload.propertyIds = hostProps.map((p) => Number(p.id));
+        } else if (selectedPropertyIds.length > 0) {
+          payload.propertyIds = selectedPropertyIds;
+        } else {
+          payload.propertyId = Number(selectedPropertyId);
+        }
         await pricingApi.createSeasonalRate(payload);
       }
       setActionMsg(seasonDialog.edit ? "Season updated" : "Season created");
@@ -148,6 +167,10 @@ function HostPricingPage() {
       const saved = await pricingApi.saveConfig({
         propertyId: Number(selectedPropertyId),
         enabled,
+        minPriceMultiplier: Number(config?.minPriceMultiplier ?? 1),
+        maxPriceMultiplier: Number(config?.maxPriceMultiplier ?? 2),
+        demandThreshold: Number(config?.demandThreshold ?? 5),
+        lookbackMonths: Number(config?.lookbackMonths ?? 3),
       });
       setConfig(saved);
       setActionMsg(enabled ? "Demand pricing enabled" : "Demand pricing disabled");
@@ -276,7 +299,9 @@ function HostPricingPage() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-sm">{rate.name}</span>
                                 <Badge variant="secondary" className="text-xs">
-                                  {rate.priceMultiplier}x
+                                  {rate.adjustmentType === "PERCENTAGE"
+                                    ? `+${rate.adjustmentValue}%`
+                                    : `+$${rate.adjustmentValue}/night`}
                                 </Badge>
                               </div>
                               <p className="text-xs text-muted-foreground mt-1">
@@ -472,25 +497,105 @@ function HostPricingPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Price Multiplier</Label>
+              <Label>Adjustment Type</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSeasonForm({ ...seasonForm, adjustmentType: "PERCENTAGE" })}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border transition-all ${
+                    seasonForm.adjustmentType === "PERCENTAGE"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:border-primary/50"
+                  }`}
+                >
+                  Percentage (+%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSeasonForm({ ...seasonForm, adjustmentType: "FIXED_AMOUNT" })}
+                  className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium border transition-all ${
+                    seasonForm.adjustmentType === "FIXED_AMOUNT"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:border-primary/50"
+                  }`}
+                >
+                  Fixed Amount (+$)
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{seasonForm.adjustmentType === "PERCENTAGE" ? "Percentage Increase" : "Fixed Amount per Night"}</Label>
               <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="10"
-                  value={seasonForm.priceMultiplier}
-                  onChange={(e) => setSeasonForm({ ...seasonForm, priceMultiplier: e.target.value })}
-                  className="rounded-xl"
-                />
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    {seasonForm.adjustmentType === "PERCENTAGE" ? "+" : "$"}
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step={seasonForm.adjustmentType === "PERCENTAGE" ? "1" : "0.01"}
+                    value={seasonForm.adjustmentValue}
+                    onChange={(e) => setSeasonForm({ ...seasonForm, adjustmentValue: e.target.value })}
+                    className="rounded-xl pl-7"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    {seasonForm.adjustmentType === "PERCENTAGE" ? "%" : ""}
+                  </span>
+                </div>
                 <span className="text-sm font-medium text-muted-foreground shrink-0">
-                  = {selectedProperty ? `$${(Number(selectedProperty.pricePerNight) * Number(seasonForm.priceMultiplier || 1)).toFixed(0)}/night` : ""}
+                  {selectedProperty && seasonForm.adjustmentType === "PERCENTAGE"
+                    ? `= $${(Number(selectedProperty.pricePerNight) * (1 + Number(seasonForm.adjustmentValue || 0) / 100)).toFixed(0)}/night`
+                    : selectedProperty && seasonForm.adjustmentType === "FIXED_AMOUNT"
+                    ? `= $${(Number(selectedProperty.pricePerNight) + Number(seasonForm.adjustmentValue || 0)).toFixed(0)}/night`
+                    : ""}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                1.0x = base price &middot; 1.5x = 50% increase &middot; 2.0x = double
+                {seasonForm.adjustmentType === "PERCENTAGE"
+                  ? "The price increases by this percentage above the base price"
+                  : "This fixed amount is added to the base price per night"}
               </p>
             </div>
+            {!seasonDialog.edit && (
+              <div className="space-y-2 pt-2 border-t">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyToAll}
+                    onChange={(e) => {
+                      setApplyToAll(e.target.checked);
+                      if (e.target.checked) setSelectedPropertyIds([]);
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium">Apply to all properties</span>
+                </label>
+                {!applyToAll && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5">Or select specific properties:</p>
+                    <div className="max-h-24 overflow-y-auto space-y-1 text-sm">
+                      {hostProps.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedPropertyIds.includes(Number(p.id))}
+                            onChange={(e) => {
+                              setSelectedPropertyIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, Number(p.id)]
+                                  : prev.filter((id) => id !== Number(p.id))
+                              );
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="truncate">{p.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-3 pt-2">
               <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setSeasonDialog({ open: false, edit: null })}>
                 Cancel

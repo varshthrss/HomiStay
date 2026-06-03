@@ -36,6 +36,8 @@ public class PropertyResponse {
     private Boolean allowsPets;
     private LocalDateTime createdAt;
     private java.math.BigDecimal cleaningFee;
+    private java.math.BigDecimal effectivePricePerNight;
+    private String seasonName;
     private String houseRules;
     private String guestRequirements;
     private String checkInInstructions;

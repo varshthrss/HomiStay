@@ -26,7 +26,7 @@ function ConfirmationPage() {
           <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
           </div>
-          <h1 className="font-serif text-3xl font-bold mb-2">You're booked!</h1>
+          <h1 className="font-serif text-3xl font-bold mb-2">Your booking is confirmed!</h1>
           <p className="text-muted-foreground">Confirmation sent to {booking.guestEmail}</p>
         </div>
 

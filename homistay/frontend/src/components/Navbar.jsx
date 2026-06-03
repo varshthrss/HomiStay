@@ -192,7 +192,7 @@ function Navbar() {
             <div className="hidden md:block">
               <Link href="/host/dashboard">
                 <Button variant="ghost" className="font-semibold text-sm">
-                  Switch to hosting
+                  Dashboard
                 </Button>
               </Link>
             </div>
@@ -258,7 +258,7 @@ function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link href="/host/my-bookings" className="flex items-center w-full">
+                      <Link href="/my-bookings" className="flex items-center w-full">
                         <CalendarDays className="w-4 h-4 mr-2" /> Bookings
                       </Link>
                     </DropdownMenuItem>

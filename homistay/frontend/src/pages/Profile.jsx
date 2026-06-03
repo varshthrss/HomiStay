@@ -16,9 +16,11 @@ export function ProfilePage() {
     bio: user?.bio || "",
     dob: user?.dob || "",
     gender: user?.gender || "",
-    avatarUrl: "",
+    avatarUrl: user?.avatar || "",
   });
   const [formData, setFormData] = useState(initFormData);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -40,7 +42,13 @@ export function ProfilePage() {
   }
 
   const handleProfileChange = (e) => {
-    let { name, value } = e.target;
+    let { name, value, files } = e.target;
+    if (name === "avatarFile" && files?.length) {
+      const file = files[0];
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+      return;
+    }
     if (name === "phone") {
       if (/[a-zA-Z]/.test(value)) {
         setPhoneError("Only numbers allowed");
@@ -72,25 +80,32 @@ export function ProfilePage() {
     try {
       setLoading(true);
       setError("");
-      
-      // Only send fields that were actually changed
+
       const payload = {};
       if (formData.fullName !== (user.name || "")) payload.fullName = formData.fullName;
       if (formData.phone !== (user.phone || "")) payload.phone = formData.phone;
       if (formData.bio !== (user.bio || "")) payload.bio = formData.bio;
       if (formData.dob !== (user.dob || "")) payload.dob = formData.dob || null;
       if (formData.gender !== (user.gender || "")) payload.gender = formData.gender;
-      if (formData.avatarUrl !== (user.avatar || user.profilePic || "")) payload.avatarUrl = formData.avatarUrl;
 
-      if (Object.keys(payload).length === 0) {
-        // No changes made
+      const hasChanges = Object.keys(payload).length > 0;
+      const hasFile = avatarFile !== null;
+
+      if (!hasChanges && !hasFile) {
         setIsEditing(false);
         setLoading(false);
         return;
       }
 
-      await authApi.updateProfile(payload);
-      window.location.reload(); 
+      const formDataPayload = new FormData();
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      formDataPayload.append("data", blob);
+      if (hasFile) {
+        formDataPayload.append("file", avatarFile);
+      }
+
+      await authApi.updateProfile(formDataPayload);
+      window.location.reload();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update profile");
       setLoading(false);
@@ -146,7 +161,7 @@ export function ProfilePage() {
                   Change Password
                 </button>
                 <button 
-                  onClick={() => { setFormData(initFormData()); setIsEditing(true); setError(''); setPhoneError(''); }}
+                  onClick={() => { setFormData(initFormData()); setAvatarFile(null); setAvatarPreview(null); setIsEditing(true); setError(''); setPhoneError(''); }}
                   className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
                 >
                   <Edit2 className="w-4 h-4 mr-2" />
@@ -232,21 +247,30 @@ export function ProfilePage() {
               <div className="relative group">
                 {isEditing ? (
                   <div className="w-40 h-40 rounded-full border-4 border-background shadow-xl mb-6 relative overflow-hidden bg-muted flex items-center justify-center">
-                    {formData.avatarUrl ? (
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : formData.avatarUrl ? (
                       <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <UserCircle className="w-20 h-20 text-muted-foreground/40" />
                     )}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                       <Camera className="w-8 h-8 text-white" />
-                    </div>
+                      <input
+                        type="file"
+                        name="avatarFile"
+                        accept="image/*"
+                        onChange={handleProfileChange}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 ) : (
                   user.avatar || user.profilePic ? (
                     <img 
                       src={user.avatar || user.profilePic} 
                       alt={user.name} 
-                      className="w-40 h-40 rounded-full object-cover border-4 border-background shadow-xl mb-6 transition-transform duration-500 group-hover:scale-105"
+                      className="w-50 h-50 rounded-full object-cover border-4 border-background shadow-xl mb-6 transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
                     <div className="w-40 h-40 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border-4 border-background shadow-xl transition-transform duration-500 group-hover:scale-105">
@@ -258,25 +282,24 @@ export function ProfilePage() {
               
               {isEditing && (
                 <div className="w-full mt-2 mb-6 space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground text-center block">Image URL</label>
-                  <input 
-                    type="text" 
-                    name="avatarUrl" 
-                    value={formData.avatarUrl} 
-                    onChange={handleProfileChange}
-                    placeholder="https://example.com/avatar.jpg"
-                    className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  />
+                  <label className="text-xs font-medium text-muted-foreground text-center block">
+                    {avatarFile ? avatarFile.name : "Click camera icon to upload photo"}
+                  </label>
                 </div>
               )}
               
               {!isEditing && (
                 <>
-                  <h2 className="text-2xl font-bold mt-2 text-center text-foreground">{user.name}</h2>
+                
+                  <h2 className="text-2xl font-bold mt-2 text-center text-foreground"></h2>
                   <div className="mt-4 inline-flex items-center px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-sm font-semibold tracking-wide uppercase shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
                     <Shield className="w-4 h-4 mr-2" />
                     {user.role}
                   </div>
+                  <br />
+                <br />
+                <br />
+                <br />
                 </>
               )}
             </div>
@@ -286,7 +309,7 @@ export function ProfilePage() {
               {isEditing && (
                 <div className="absolute top-6 right-6 flex gap-2">
                   <button 
-                    onClick={() => { setFormData(initFormData()); setIsEditing(false); setError(''); setPhoneError(''); }}
+                    onClick={() => { setFormData(initFormData()); setAvatarFile(null); setAvatarPreview(null); setIsEditing(false); setError(''); setPhoneError(''); }}
                     disabled={loading}
                     className="p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"
                   >
@@ -446,7 +469,7 @@ export function ProfilePage() {
               {isEditing && (
                 <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-border/40">
                   <button 
-                    onClick={() => { setFormData(initFormData()); setIsEditing(false); setError(''); setPhoneError(''); }}
+                    onClick={() => { setFormData(initFormData()); setAvatarFile(null); setAvatarPreview(null); setIsEditing(false); setError(''); setPhoneError(''); }}
                     disabled={loading}
                     className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
                   >

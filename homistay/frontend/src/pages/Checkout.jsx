@@ -65,7 +65,7 @@ function CheckoutPage() {
     if (!form.cardName.trim()) return "Please enter the name on your card.";
     if (form.cardNumber.replace(/\s/g, "").length < 13) return "Please enter a valid card number.";
     if (!isValidExpiry(form.expiry)) return "Please enter a valid expiry date (MM/YY) that is not in the past.";
-    if (form.cvv.length < 3) return "Please enter a valid CVV.";
+    if (form.cvv.length != 3) return "Please enter a valid CVV.";
     return null;
   };
 

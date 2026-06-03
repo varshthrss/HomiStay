@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/experiences/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
                         .requestMatchers("/api/chatbot/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/host/**").hasAnyRole("HOST", "ADMIN")
                         .requestMatchers("/api/support/**").hasAnyRole("SUPPORT_TEAM", "ADMIN")
                         .anyRequest().authenticated()
