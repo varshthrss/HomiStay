@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAppContext } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { DollarSign, TrendingUp, CreditCard, ArrowUpRight } from "lucide-react";
+import { DollarSign, TrendingUp, CreditCard, Donut } from "lucide-react";
 import { hostApi } from "@/services/api";
 
 const allMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -66,7 +66,8 @@ function HostEarningsPage() {
     { label: "Total Earnings", value: `$${Number(totalEarnings).toLocaleString()}`, icon: DollarSign, sub: "All time", color: "text-green-600" },
     { label: "This Month", value: `$${Number(monthlyEarnings).toLocaleString()}`, icon: TrendingUp, sub: "Last 30 days", color: "text-blue-600" },
     { label: "Confirmed Bookings", value: confirmedBookings, icon: CreditCard, sub: "Revenue generating", color: "text-primary" },
-    { label: "Avg per Booking", value: `$${avgPerBooking.toLocaleString()}`, icon: ArrowUpRight, sub: "Across all bookings", color: "text-amber-600" }
+    { label: "Net Payout", value: `$${Number(totalEarnings * 0.97).toLocaleString()}`, icon: Donut, sub: "All time", color: "text-purple-600" },
+    // { label: "N/A", value: `NA`, icon: ArrowUpRight, sub: "N/A", color: "text-amber-600" }
   ].map((stat) => <div key={stat.label} className="bg-card border rounded-2xl p-5">
               <stat.icon className={`w-5 h-5 ${stat.color} mb-3`} />
               <p className="text-2xl font-bold">{stat.value}</p>
